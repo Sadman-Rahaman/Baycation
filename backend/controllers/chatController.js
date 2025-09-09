@@ -1,4 +1,3 @@
-// backend/controllers/chatController.js
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const User = require('../models/User');
@@ -11,10 +10,19 @@ class ChatController {
       const { participantId } = req.body;
       const userId = req.user.userId;
 
+      console.log('Creating/Getting direct chat between:', userId, 'and', participantId);
+
       if (!participantId) {
         return res.status(400).json({
           success: false,
           message: 'Participant ID is required'
+        });
+      }
+
+      if (participantId === userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot create chat with yourself'
         });
       }
 
@@ -31,9 +39,10 @@ class ChatController {
       let chat = await Chat.findOne({
         chatType: 'direct',
         'participants.user': { $all: [userId, participantId] }
-      }).populate('participants.user', 'name email isOnline');
+      }).populate('participants.user', 'name email isOnline bio location');
 
       if (chat) {
+        console.log('Existing chat found:', chat._id);
         return res.json({
           success: true,
           message: 'Chat already exists',
@@ -41,18 +50,30 @@ class ChatController {
         });
       }
 
+      // Get current user for role
+      const currentUser = await User.findById(userId);
+
       // Create new direct chat
       chat = new Chat({
         chat_id: uuidv4(),
         chatType: 'direct',
         participants: [
-          { user: userId, role: 'member' },
-          { user: participantId, role: 'member' }
-        ]
+          { 
+            user: userId, 
+            role: currentUser.role || 'traveler'
+          },
+          { 
+            user: participantId, 
+            role: participant.role || 'traveler'
+          }
+        ],
+        isActive: true
       });
 
       await chat.save();
-      await chat.populate('participants.user', 'name email isOnline');
+      await chat.populate('participants.user', 'name email isOnline bio location');
+
+      console.log('New chat created:', chat._id);
 
       res.status(201).json({
         success: true,
@@ -63,12 +84,13 @@ class ChatController {
       console.error('Create direct chat error:', error);
       res.status(500).json({
         success: false,
-        message: 'Server error while creating chat'
+        message: 'Server error while creating chat',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
 
-  // Get chat details by ID - THIS METHOD WAS MISSING
+  // Get chat details by ID
   static async getChatDetails(req, res) {
     try {
       const { chatId } = req.params;
@@ -80,6 +102,7 @@ class ChatController {
         .populate('participants.user', 'name email isOnline bio location');
 
       if (!chat) {
+        console.log('Chat not found:', chatId);
         return res.status(404).json({
           success: false,
           message: 'Chat not found'
@@ -87,16 +110,21 @@ class ChatController {
       }
 
       // Check if user is a participant
-      const isParticipant = chat.participants.some(
-        p => p.user._id.toString() === userId
-      );
+      const isParticipant = chat.participants.some(p => {
+        // Handle both populated and non-populated cases
+        const participantUserId = p.user._id ? p.user._id.toString() : p.user.toString();
+        return participantUserId === userId;
+      });
 
       if (!isParticipant) {
+        console.log('User not a participant in this chat');
         return res.status(403).json({
           success: false,
           message: 'Access denied to this chat'
         });
       }
+
+      console.log('Chat details fetched successfully');
 
       res.json({
         success: true,
@@ -106,7 +134,8 @@ class ChatController {
       console.error('Get chat details error:', error);
       res.status(500).json({
         success: false,
-        message: 'Server error while fetching chat details'
+        message: 'Server error while fetching chat details',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -120,7 +149,8 @@ class ChatController {
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
       const chats = await Chat.find({
-        'participants.user': userId
+        'participants.user': userId,
+        isActive: true
       })
         .populate('participants.user', 'name email isOnline')
         .populate({
@@ -135,7 +165,8 @@ class ChatController {
         .limit(parseInt(limit));
 
       const total = await Chat.countDocuments({
-        'participants.user': userId
+        'participants.user': userId,
+        isActive: true
       });
 
       res.json({
@@ -168,20 +199,23 @@ class ChatController {
 
       console.log('Getting messages for chat:', chatId, 'User:', userId);
 
-      // Verify user is participant
+      // Verify chat exists
       const chat = await Chat.findById(chatId);
       if (!chat) {
+        console.log('Chat not found:', chatId);
         return res.status(404).json({
           success: false,
           message: 'Chat not found'
         });
       }
 
+      // Verify user is participant
       const isParticipant = chat.participants.some(
         p => p.user.toString() === userId
       );
 
       if (!isParticipant) {
+        console.log('User not a participant');
         return res.status(403).json({
           success: false,
           message: 'Access denied'
@@ -190,13 +224,21 @@ class ChatController {
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
-      const messages = await Message.find({ chat: chatId })
+      const messages = await Message.find({ 
+        chat: chatId,
+        isDeleted: false
+      })
         .populate('sender', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
 
-      const total = await Message.countDocuments({ chat: chatId });
+      const total = await Message.countDocuments({ 
+        chat: chatId,
+        isDeleted: false
+      });
+
+      console.log(`Found ${messages.length} messages`);
 
       res.json({
         success: true,
@@ -214,7 +256,8 @@ class ChatController {
       console.error('Get chat messages error:', error);
       res.status(500).json({
         success: false,
-        message: 'Server error while fetching messages'
+        message: 'Server error while fetching messages',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -225,6 +268,8 @@ class ChatController {
       const { chatId } = req.params;
       const { content, messageType = 'text' } = req.body;
       const senderId = req.user.userId;
+
+      console.log('Sending message to chat:', chatId);
 
       if (!content || content.trim().length === 0) {
         return res.status(400).json({
@@ -266,8 +311,22 @@ class ChatController {
       await message.populate('sender', 'name email');
 
       // Update chat's last message and activity
-      chat.lastMessage = message._id;
-      chat.lastActivity = new Date();
+      chat.lastMessage = {
+        content: message.content,
+        sender: senderId,
+        timestamp: new Date(),
+        messageType
+      };
+      chat.updatedAt = new Date();
+      
+      // Update unread count for other participants
+      chat.participants.forEach(participant => {
+        if (participant.user.toString() !== senderId) {
+          const currentCount = chat.unreadCount.get(participant.user.toString()) || 0;
+          chat.unreadCount.set(participant.user.toString(), currentCount + 1);
+        }
+      });
+      
       await chat.save();
 
       // Emit socket event if available
@@ -275,12 +334,16 @@ class ChatController {
       if (io) {
         // Emit to all participants in the chat
         chat.participants.forEach(participant => {
-          io.to(`user-${participant.user}`).emit('newMessage', {
-            chatId,
-            message
-          });
+          if (participant.user.toString() !== senderId) {
+            io.to(`user-${participant.user}`).emit('newMessage', {
+              chatId,
+              message
+            });
+          }
         });
       }
+
+      console.log('Message sent successfully');
 
       res.status(201).json({
         success: true,
@@ -291,7 +354,8 @@ class ChatController {
       console.error('Send message error:', error);
       res.status(500).json({
         success: false,
-        message: 'Server error while sending message'
+        message: 'Server error while sending message',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -302,17 +366,31 @@ class ChatController {
       const { chatId } = req.params;
       const userId = req.user.userId;
 
+      console.log('Marking messages as read for chat:', chatId);
+
       // Update all unread messages in this chat
       await Message.updateMany(
         {
           chat: chatId,
           sender: { $ne: userId },
-          readBy: { $ne: userId }
+          'readBy.user': { $ne: userId }
         },
         {
-          $addToSet: { readBy: userId }
+          $addToSet: { 
+            readBy: { 
+              user: userId, 
+              readAt: new Date() 
+            } 
+          }
         }
       );
+
+      // Reset unread count in chat
+      const chat = await Chat.findById(chatId);
+      if (chat) {
+        chat.unreadCount.set(userId, 0);
+        await chat.save();
+      }
 
       res.json({
         success: true,
@@ -327,7 +405,7 @@ class ChatController {
     }
   }
 
-  // Delete message
+  // Delete message (soft delete)
   static async deleteMessage(req, res) {
     try {
       const { messageId } = req.params;
@@ -380,14 +458,14 @@ class ChatController {
       };
 
       if (answered !== 'all') {
-        query.isAnswered = answered === 'true';
+        query['metadata.isAnswered'] = answered === 'true';
       }
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
       const messages = await Message.find(query)
         .populate('sender', 'name email')
-        .populate('answeredBy', 'name email')
+        .populate('metadata.answeredBy', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -445,26 +523,40 @@ class ChatController {
         });
       }
 
-      if (message.isAnswered) {
+      if (message.metadata.isAnswered) {
         return res.status(400).json({
           success: false,
           message: 'This question has already been answered'
         });
       }
 
-      // Update the question with answer
-      message.answer = answer.trim();
-      message.answeredBy = userId;
-      message.answeredAt = new Date();
-      message.isAnswered = true;
+      // Create answer message
+      const answerMessage = new Message({
+        message_id: uuidv4(),
+        chat: message.chat,
+        sender: userId,
+        content: answer.trim(),
+        messageType: 'answer',
+        replyTo: messageId,
+        metadata: {
+          isAnswer: true
+        }
+      });
+
+      await answerMessage.save();
+
+      // Update original question
+      message.metadata.isAnswered = true;
+      message.metadata.answeredBy = userId;
+      message.metadata.answeredAt = new Date();
       await message.save();
 
-      await message.populate('answeredBy', 'name email');
+      await answerMessage.populate('sender', 'name email');
 
       res.json({
         success: true,
         message: 'Question answered successfully',
-        data: { message }
+        data: { message: answerMessage }
       });
     } catch (error) {
       console.error('Answer question error:', error);

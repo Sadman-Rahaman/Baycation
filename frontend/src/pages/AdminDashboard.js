@@ -168,55 +168,6 @@ const AdminDashboard = () => {
         </button>
       </div>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div className="admin-overview">
-          {dashboardStats && (
-            <div className="stats-grid">
-              <div className="stat-card">
-                <h3>Total Users</h3>
-                <div className="stat-number">{dashboardStats.overview?.totalUsers || 0}</div>
-              </div>
-              <div className="stat-card">
-                <h3>Total Trips</h3>
-                <div className="stat-number">{dashboardStats.overview?.totalTrips || 0}</div>
-              </div>
-              <div className="stat-card">
-                <h3>Gear Listings</h3>
-                <div className="stat-number">{dashboardStats.overview?.totalGear || 0}</div>
-              </div>
-              <div className="stat-card">
-                <h3>Total Orders</h3>
-                <div className="stat-number">{dashboardStats.overview?.totalOrders || 0}</div>
-              </div>
-              <div className="stat-card">
-                <h3>Pending Verifications</h3>
-                <div className="stat-number">{dashboardStats.overview?.pendingVerifications || 0}</div>
-              </div>
-            </div>
-          )}
-
-          <div className="card">
-            <h2>Recent Activity</h2>
-            {dashboardStats?.recentActivity?.length > 0 ? (
-              <div className="activity-list">
-                {dashboardStats.recentActivity.map((activity, index) => (
-                  <div key={index} className="activity-item">
-                    <span className="activity-user">{activity.name}</span>
-                    <span className="activity-role">{activity.role}</span>
-                    <span className="activity-date">
-                      {new Date(activity.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No recent activity</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Pending Trips Tab */}
       {activeTab === 'trips' && (
         <div className="card">

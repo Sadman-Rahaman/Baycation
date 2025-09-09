@@ -1,4 +1,3 @@
-// backend/controllers/guideVerificationController.js
 const GuideVerification = require('../models/GuideVerification');
 const User = require('../models/User');
 const { v4: uuidv4 } = require('uuid');
@@ -13,9 +12,9 @@ class GuideVerificationController {
 
       const userId = req.user.userId;
 
-      // Check for existing verification
+      // Check for existing verification - FIXED: Changed 'user' to 'applicant'
       const existingVerification = await GuideVerification.findOne({
-        user: userId,
+        applicant: userId,  // FIXED: Changed from 'user' to 'applicant'
         status: { $in: ['pending', 'under_review', 'approved'] }
       });
 
@@ -27,10 +26,10 @@ class GuideVerificationController {
         });
       }
 
-      // Create new verification with minimal validation
+      // Create new verification - FIXED: Changed 'user' to 'applicant'
       const newVerification = {
         verification_id: uuidv4(),
-        user: userId,
+        applicant: userId,  // FIXED: Changed from 'user' to 'applicant'
         personalInfo: req.body.personalInfo || {},
         professionalInfo: req.body.professionalInfo || {},
         documents: req.body.documents || {},
@@ -78,7 +77,8 @@ class GuideVerificationController {
       const userId = req.user.userId;
       console.log('Getting verification status for user:', userId);
 
-      const verification = await GuideVerification.findOne({ user: userId })
+      // FIXED: Changed 'user' to 'applicant'
+      const verification = await GuideVerification.findOne({ applicant: userId })
         .sort({ createdAt: -1 });
 
       if (!verification) {
@@ -111,9 +111,10 @@ class GuideVerificationController {
       const userId = req.user.userId;
       const updateData = req.body;
 
+      // FIXED: Changed 'user' to 'applicant'
       const verification = await GuideVerification.findOne({
         _id: verificationId,
-        user: userId,
+        applicant: userId,  // FIXED: Changed from 'user' to 'applicant'
         status: 'pending'
       });
 
@@ -154,8 +155,9 @@ class GuideVerificationController {
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
 
+      // FIXED: Changed 'user' to 'applicant' in populate
       const verifications = await GuideVerification.find(query)
-        .populate('user', 'name email')
+        .populate('applicant', 'name email')  // FIXED: Changed from 'user' to 'applicant'
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -216,15 +218,15 @@ class GuideVerificationController {
       verification.review = {
         reviewedBy: reviewerId,
         reviewedAt: new Date(),
-        notes: notes || '',
+        comments: notes || '',
         rejectionReason: status === 'rejected' ? rejectionReason : null
       };
 
       await verification.save();
 
-      // Update user's guide status if approved
+      // Update user's guide status if approved - FIXED: using 'applicant' field
       if (status === 'approved') {
-        await User.findByIdAndUpdate(verification.user, {
+        await User.findByIdAndUpdate(verification.applicant, {  // FIXED: Changed from 'verification.user' to 'verification.applicant'
           role: 'guide',
           guideStatus: 'verified',
           'guideInfo.verificationLevel': verification.verificationLevel,

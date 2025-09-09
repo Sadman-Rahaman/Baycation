@@ -11,13 +11,9 @@ const path = require('path');
 const userRoutes = require('./routes/userRoutes');
 const tripRoutes = require('./routes/tripRoutes');
 const travelerRoutes = require('./routes/travelerRoutes');
-const discussionRoutes = require('./routes/discussionRoutes');
 const storyRoutes = require('./routes/storyRoutes');
-const ratingRoutes = require('./routes/ratingRoutes');
 const gearRoutes = require('./routes/gearRoutes');
-const orderRoutes = require('./routes/orderRoutes');
 const guideVerificationRoutes = require('./routes/guideVerificationRoutes');
-// REMOVED: const hostedTripRoutes = require('./routes/hostedTripRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
@@ -61,13 +57,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/users', userRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/travelers', travelerRoutes);
-app.use('/api/discussions', discussionRoutes);
 app.use('/api/stories', storyRoutes);
-app.use('/api/ratings', ratingRoutes);
 app.use('/api/gear', gearRoutes);
-app.use('/api/orders', orderRoutes);
 app.use('/api/guide-verification', guideVerificationRoutes);
-// REMOVED: app.use('/api/hosted-trips', hostedTripRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 

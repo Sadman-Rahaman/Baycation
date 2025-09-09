@@ -86,11 +86,6 @@ const tripSchema = new mongoose.Schema({
       type: Number,
       required: true,
       min: [0, 'Maximum budget cannot be negative']
-    },
-    currency: {
-      type: String,
-      default: 'USD',
-      enum: ['USD', 'EUR', 'GBP', 'BDT', 'INR']
     }
   },
   difficulty: {
@@ -146,20 +141,6 @@ const tripSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  collaborativeFeatures: {
-    allowDiscussions: {
-      type: Boolean,
-      default: true
-    },
-    allowItineraryEditing: {
-      type: Boolean,
-      default: true
-    },
-    lastActivity: {
-      type: Date,
-      default: Date.now
-    }
-  }
 }, {
   timestamps: true
 });

@@ -1,7 +1,6 @@
 // backend/controllers/tripController.js
 const Trip = require('../models/Trip');
 const User = require('../models/User');
-const Discussion = require('../models/Discussion');
 const { v4: uuidv4 } = require('uuid');
 
 class TripController {
@@ -21,7 +20,6 @@ class TripController {
         tags,
         requirements,
         isPublic,
-        collaborativeFeatures
       } = req.body;
 
       const trip = new Trip({
@@ -41,11 +39,6 @@ class TripController {
         isPublic: isPublic !== undefined ? isPublic : true,
         status: 'planning',
         isApproved: false,
-        collaborativeFeatures: {
-          allowDiscussions: collaborativeFeatures?.allowDiscussions !== false,
-          allowItineraryEditing: collaborativeFeatures?.allowItineraryEditing !== false,
-          lastActivity: new Date()
-        }
       });
 
       await trip.save();
@@ -55,21 +48,6 @@ class TripController {
       await User.findByIdAndUpdate(req.user.userId, {
         $push: { joinedTrips: trip._id }
       });
-
-      // Create discussion thread for the trip
-      if (trip.collaborativeFeatures.allowDiscussions) {
-        const discussion = new Discussion({
-          trip: trip._id,
-          messages: [{
-            messageId: uuidv4(),
-            author: req.user.userId,
-            content: 'Trip discussion started! Welcome everyone to collaborate on this amazing journey.',
-            messageType: 'system',
-            timestamp: new Date()
-          }]
-        });
-        await discussion.save();
-      }
 
       // Do not broadcast until approved
 
@@ -163,6 +141,7 @@ class TripController {
       res.status(500).json({ success: false, message: 'Server error while approving trip' });
     }
   }
+
   // Get feed: trips from users I follow
   static async getFollowedFeed(req, res) {
     try {
@@ -197,6 +176,7 @@ class TripController {
       res.status(500).json({ success: false, message: 'Server error while fetching feed' });
     }
   }
+
   // Get all public trips
   static async getAllTrips(req, res) {
     try {
@@ -255,7 +235,6 @@ class TripController {
       const trips = await Trip.find(query)
         .populate('organizer', 'name email bio')
         .populate('participants.user', 'name email')
-        .sort({ 'collaborativeFeatures.lastActivity': -1, createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit));
 
@@ -334,12 +313,6 @@ class TripController {
         });
       }
 
-      // Update collaborative features activity
-      updateData.collaborativeFeatures = {
-        ...trip.collaborativeFeatures,
-        lastActivity: new Date()
-      };
-
       // Update trip
       Object.assign(trip, updateData);
       await trip.save();
@@ -405,9 +378,6 @@ class TripController {
         return res.status(403).json({ success: false, message: 'Only organizer or admin can delete this trip' });
       }
 
-      // Delete associated discussion
-      await Discussion.findOneAndDelete({ trip: tripId });
-
       await Trip.findByIdAndDelete(tripId);
 
       // Remove trip from all users' joined trips
@@ -438,41 +408,80 @@ class TripController {
     }
   }
 
-  // Join trip
+  // Join trip - FIXED
   static async joinTrip(req, res) {
     try {
       const { tripId } = req.params;
       const userId = req.user.userId;
 
+      console.log('Join trip request - Trip ID:', tripId, 'User ID:', userId);
+
       const trip = await Trip.findById(tripId).populate('organizer', 'name');
       
       if (!trip) {
+        console.log('Trip not found:', tripId);
         return res.status(404).json({
           success: false,
           message: 'Trip not found'
         });
       }
 
-      // Ensure trip is joinable
+      console.log('Trip found:', trip.title);
+      console.log('Trip approved status:', trip.isApproved);
+      console.log('Trip status:', trip.status);
+      console.log('Current participants:', trip.currentParticipants, '/', trip.maxParticipants);
+
+      // Check if trip is approved
+      if (!trip.isApproved) {
+        console.log('Trip not approved yet');
+        return res.status(400).json({
+          success: false,
+          message: 'This trip is pending approval and not open for joining yet'
+        });
+      }
+
+      // Check if trip is full
       if (trip.currentParticipants >= trip.maxParticipants) {
+        console.log('Trip is full');
         return res.status(400).json({
           success: false,
           message: 'Trip is full'
         });
       }
+
+      // Check trip status
       if (trip.status === 'completed' || trip.status === 'cancelled') {
+        console.log('Trip status not accepting participants:', trip.status);
         return res.status(400).json({
           success: false,
           message: 'This trip is not accepting participants'
         });
       }
 
-      // Check if user already joined
-      const alreadyJoined = trip.participants.find(
-        p => p.user.toString() === userId
-      );
+      // Check if user is the organizer
+      if (trip.organizer._id.toString() === userId) {
+        console.log('User is the organizer, cannot join own trip');
+        return res.status(400).json({
+          success: false,
+          message: 'You cannot join your own trip'
+        });
+      }
+
+      // FIXED: Properly check if user already joined
+      // Handle both populated and non-populated user fields
+      const alreadyJoined = trip.participants.some(p => {
+        // If p.user is populated (has _id property), compare _id
+        if (p.user && typeof p.user === 'object' && p.user._id) {
+          return p.user._id.toString() === userId;
+        }
+        // If p.user is just an ObjectId, compare directly
+        return p.user && p.user.toString() === userId;
+      });
+
+      console.log('Already joined check:', alreadyJoined);
 
       if (alreadyJoined) {
+        console.log('User already joined this trip');
         return res.status(400).json({
           success: false,
           message: 'You have already joined this trip'
@@ -482,44 +491,30 @@ class TripController {
       // Add participant
       trip.participants.push({
         user: userId,
-        status: 'confirmed'
+        status: 'confirmed',
+        joinedAt: new Date()
       });
 
+      console.log('Adding participant to trip');
+
+      // Update participant count
       trip.updateParticipantCount();
-      trip.collaborativeFeatures.lastActivity = new Date();
       await trip.save();
+
+      console.log('Trip saved with new participant');
 
       // Add trip to user's joined trips
       await User.findByIdAndUpdate(userId, {
-        $push: { joinedTrips: tripId }
+        $addToSet: { joinedTrips: tripId } // Use $addToSet to avoid duplicates
       });
+
+      console.log('Updated user joined trips');
 
       // Get user info for notifications
       const user = await User.findById(userId).select('name email');
 
-      // Add system message to discussion if enabled
-      if (trip.collaborativeFeatures.allowDiscussions) {
-        await Discussion.findOneAndUpdate(
-          { trip: tripId },
-          {
-            $push: {
-              messages: {
-                messageId: uuidv4(),
-                author: userId,
-                content: `${user.name} has joined the trip!`,
-                messageType: 'user_joined',
-                metadata: {
-                  userAction: {
-                    action: 'joined',
-                    userName: user.name
-                  }
-                },
-                timestamp: new Date()
-              }
-            }
-          }
-        );
-      }
+      // Populate trip for response
+      await trip.populate('participants.user', 'name email');
 
       // Emit socket events
       const io = req.app.get('io');
@@ -538,9 +533,11 @@ class TripController {
       });
     } catch (error) {
       console.error('Join trip error:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         success: false,
-        message: 'Server error while joining trip'
+        message: 'Server error while joining trip',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
@@ -574,7 +571,6 @@ class TripController {
       );
 
       trip.updateParticipantCount();
-      trip.collaborativeFeatures.lastActivity = new Date();
       await trip.save();
 
       // Remove trip from user's joined trips
@@ -584,31 +580,7 @@ class TripController {
 
       // Get user info for notifications
       const user = await User.findById(userId).select('name email');
-
-      // Add system message to discussion if enabled
-      if (trip.collaborativeFeatures.allowDiscussions) {
-        await Discussion.findOneAndUpdate(
-          { trip: tripId },
-          {
-            $push: {
-              messages: {
-                messageId: uuidv4(),
-                author: userId,
-                content: `${user.name} has left the trip.`,
-                messageType: 'user_left',
-                metadata: {
-                  userAction: {
-                    action: 'left',
-                    userName: user.name
-                  }
-                },
-                timestamp: new Date()
-              }
-            }
-          }
-        );
-      }
-
+      
       // Emit socket events
       const io = req.app.get('io');
       if (io) {
@@ -653,9 +625,8 @@ class TripController {
 
       const trips = await Trip.find(query)
         .populate('organizer', 'name email')
-        .populate('participants.user', 'name email')
-        .sort({ 'collaborativeFeatures.lastActivity': -1, createdAt: -1 });
-
+        .populate('participants.user', 'name email');
+        
       res.json({
         success: true,
         data: { trips }
@@ -684,14 +655,6 @@ class TripController {
         });
       }
 
-      // Check if collaborative itinerary editing is allowed
-      if (!trip.collaborativeFeatures.allowItineraryEditing) {
-        return res.status(403).json({
-          success: false,
-          message: 'Collaborative itinerary editing is disabled for this trip'
-        });
-      }
-
       // Check if user is organizer or participant
       const isOrganizer = trip.organizer.toString() === req.user.userId;
       const isParticipant = trip.participants.some(
@@ -716,36 +679,10 @@ class TripController {
       }));
 
       trip.itinerary = updatedItinerary;
-      trip.collaborativeFeatures.lastActivity = new Date();
       await trip.save();
 
       // Get user info
       const user = await User.findById(req.user.userId).select('name');
-
-      // Add system message to discussion
-      if (trip.collaborativeFeatures.allowDiscussions) {
-        await Discussion.findOneAndUpdate(
-          { trip: tripId },
-          {
-            $push: {
-              messages: {
-                messageId: uuidv4(),
-                author: req.user.userId,
-                content: `${user.name} updated the trip itinerary.`,
-                messageType: 'itinerary_update',
-                metadata: {
-                  itineraryChange: {
-                    action: 'updated',
-                    day: null,
-                    activity: 'Full itinerary updated'
-                  }
-                },
-                timestamp: new Date()
-              }
-            }
-          }
-        );
-      }
 
       // Emit socket event for real-time collaboration
       const io = req.app.get('io');

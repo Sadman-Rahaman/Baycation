@@ -302,17 +302,7 @@ const TripDetails = () => {
             >
               {actionLoading ? 'Joining...' : 'Join This Trip'}
             </button>
-          )}
-          
-          {(isOrganizer || isParticipant) && trip.collaborativeFeatures.allowDiscussions && (
-            <Link 
-              to={`/trips/${tripId}/collaborate`}
-              className="btn btn-outline"
-            >
-              💬 Collaborate & Chat
-            </Link>
-          )}
-          
+          )}                    
           {isParticipant && !isOrganizer && (
             <button 
               onClick={handleLeaveTrip}

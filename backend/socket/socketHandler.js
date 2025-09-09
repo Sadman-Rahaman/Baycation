@@ -1,7 +1,6 @@
 // backend/socket/socketHandler.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Discussion = require('../models/Discussion');
 const Trip = require('../models/Trip');
 
 // Socket authentication middleware

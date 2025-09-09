@@ -1,6 +1,6 @@
 // backend/controllers/gearController.js
 const Gear = require('../models/Gear');
-const Order = require('../models/Order');
+// REMOVED: const Order = require('../models/Order'); - This line was causing the error
 const User = require('../models/User');
 const { v4: uuidv4 } = require('uuid');
 

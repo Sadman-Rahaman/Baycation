@@ -200,34 +200,6 @@ export const tripAPI = {
   }
 };
 
-// Discussion API functions
-export const discussionAPI = {
-  getDiscussion: async (tripId, page = 1, limit = 50) => {
-    const response = await api.get(`/discussions/trip/${tripId}?page=${page}&limit=${limit}`);
-    return response.data;
-  },
-
-  sendMessage: async (tripId, content, messageType = 'text') => {
-    const response = await api.post(`/discussions/trip/${tripId}/messages`, {
-      content,
-      messageType
-    });
-    return response.data;
-  },
-
-  updateTypingStatus: async (tripId, isTyping) => {
-    const response = await api.post(`/discussions/trip/${tripId}/typing`, {
-      isTyping
-    });
-    return response.data;
-  },
-
-  markUserActive: async (tripId) => {
-    const response = await api.post(`/discussions/trip/${tripId}/active`);
-    return response.data;
-  }
-};
-
 // Story API functions
 export const storyAPI = {
   createStory: async (storyData) => {
@@ -310,47 +282,6 @@ export const storyAPI = {
   }
 };
 
-// Rating API functions
-export const ratingAPI = {
-  createRating: async (ratingData) => {
-    const response = await api.post('/ratings', ratingData);
-    return response.data;
-  },
-
-  getRatings: async (targetType, targetId, filters = {}) => {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key]) {
-        params.append(key, filters[key]);
-      }
-    });
-    const response = await api.get(`/ratings/${targetType}/${targetId}?${params.toString()}`);
-    return response.data;
-  },
-
-  voteHelpful: async (ratingId, isHelpful) => {
-    const response = await api.post(`/ratings/${ratingId}/vote`, { isHelpful });
-    return response.data;
-  },
-
-  reportRating: async (ratingId, reason) => {
-    const response = await api.post(`/ratings/${ratingId}/report`, { reason });
-    return response.data;
-  },
-
-  getUserRatings: async (filters = {}) => {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key]) {
-        params.append(key, filters[key]);
-      }
-    });
-    const response = await api.get(`/ratings/user/ratings?${params.toString()}`);
-    return response.data;
-  }
-};
-
-// Gear API functions
 export const gearAPI = {
   createGear: async (gearData) => {
     const response = await api.post('/gear', gearData);
@@ -404,46 +335,6 @@ export const gearAPI = {
     return response.data;
   }
 };
-
-// Order API functions
-export const orderAPI = {
-  createOrder: async (orderData) => {
-    const response = await api.post('/orders', orderData);
-    return response.data;
-  },
-
-  getUserOrders: async (filters = {}) => {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key]) {
-        params.append(key, filters[key]);
-      }
-    });
-    const response = await api.get(`/orders/user/orders?${params.toString()}`);
-    return response.data;
-  },
-
-  getOrder: async (orderId) => {
-    const response = await api.get(`/orders/${orderId}`);
-    return response.data;
-  },
-
-  updateOrderStatus: async (orderId, status, notes) => {
-    const response = await api.put(`/orders/${orderId}/status`, { status, notes });
-    return response.data;
-  },
-
-  cancelOrder: async (orderId, reason) => {
-    const response = await api.put(`/orders/${orderId}/cancel`, { reason });
-    return response.data;
-  },
-
-  processRefund: async (orderId, amount, reason) => {
-    const response = await api.post(`/orders/${orderId}/refund`, { amount, reason });
-    return response.data;
-  }
-};
-
 // Guide Verification API functions
 export const guideVerificationAPI = {
   submitVerification: async (verificationData) => {

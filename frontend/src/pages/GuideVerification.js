@@ -1,4 +1,3 @@
-// frontend/src/pages/GuideVerification.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../services/AuthContext';
@@ -28,13 +27,16 @@ const GuideVerification = () => {
     profilePhotoPreview: ''
   });
 
+  // FIXED: Updated specialization options with correct mapping
   const specializationOptions = [
-    'Adventure Tours',
-    'Cultural Tours', 
-    'Historical Sites',
-    'Nature & Wildlife',
-    'City Tours',
-    'Food Tours'
+    { label: 'Adventure Tours', value: 'adventure' },
+    { label: 'Cultural Tours', value: 'cultural' },
+    { label: 'Historical Sites', value: 'historical' },
+    { label: 'Nature & Wildlife', value: 'nature' },
+    { label: 'Culinary Tours', value: 'culinary' },
+    { label: 'Photography Tours', value: 'photography' },
+    { label: 'Language Tours', value: 'language' },
+    { label: 'Other', value: 'other' }
   ];
 
   useEffect(() => {
@@ -103,17 +105,18 @@ const GuideVerification = () => {
     setError('');
   };
 
-  const handleSpecializationChange = (spec) => {
+  // FIXED: Updated to handle specialization value properly
+  const handleSpecializationChange = (specValue) => {
     const specs = [...formData.specializations];
-    if (specs.includes(spec)) {
+    if (specs.includes(specValue)) {
       setFormData({
         ...formData,
-        specializations: specs.filter(s => s !== spec)
+        specializations: specs.filter(s => s !== specValue)
       });
     } else {
       setFormData({
         ...formData,
-        specializations: [...specs, spec]
+        specializations: [...specs, specValue]
       });
     }
   };
@@ -151,6 +154,7 @@ const GuideVerification = () => {
       const idDocumentBase64 = await convertFileToBase64(formData.idDocument);
       const profilePhotoBase64 = await convertFileToBase64(formData.profilePhoto);
 
+      // FIXED: Send specializations directly without transformation
       const verificationData = {
         personalInfo: {
           fullName: formData.fullName,
@@ -168,7 +172,7 @@ const GuideVerification = () => {
             years: parseInt(formData.experienceYears),
             description: formData.experienceDescription
           },
-          specializations: formData.specializations.map(s => s.toLowerCase().replace(/\s+/g, '_')),
+          specializations: formData.specializations, // FIXED: Send values directly, no transformation
           languages: formData.languages.split(',').map(lang => ({
             language: lang.trim(),
             proficiency: 'intermediate'
@@ -195,6 +199,8 @@ const GuideVerification = () => {
           }
         ]
       };
+
+      console.log('Submitting verification with specializations:', verificationData.professionalInfo.specializations);
 
       await guideVerificationAPI.submitVerification(verificationData);
       setSuccess('Your application has been submitted successfully! We will review it within 24-48 hours.');
@@ -230,7 +236,7 @@ const GuideVerification = () => {
           <div className="status-icon">
             {verificationStatus.status === 'approved' ? '✅' : 
              verificationStatus.status === 'pending' ? '⏳' : 
-             verificationStatus.status === 'rejected' ? '❌' : '🔄'}
+             verificationStatus.status === 'rejected' ? '❌' : '📝'}
           </div>
           
           <h2>Application Status: {verificationStatus.status.toUpperCase()}</h2>
@@ -280,7 +286,7 @@ const GuideVerification = () => {
       <form className="verification-form" onSubmit={handleSubmit}>
         {/* Basic Information */}
         <div className="form-section">
-          <h3>📝 Basic Information</h3>
+          <h3>👤 Basic Information</h3>
           
           <div className="form-row">
             <div className="form-group">
@@ -374,13 +380,13 @@ const GuideVerification = () => {
             <label>Specializations * (Select at least one)</label>
             <div className="checkbox-grid">
               {specializationOptions.map(spec => (
-                <label key={spec} className="checkbox-item">
+                <label key={spec.value} className="checkbox-item">
                   <input
                     type="checkbox"
-                    checked={formData.specializations.includes(spec)}
-                    onChange={() => handleSpecializationChange(spec)}
+                    checked={formData.specializations.includes(spec.value)}
+                    onChange={() => handleSpecializationChange(spec.value)}
                   />
-                  <span>{spec}</span>
+                  <span>{spec.label}</span>
                 </label>
               ))}
             </div>
@@ -418,7 +424,7 @@ const GuideVerification = () => {
                   required
                 />
                 <label htmlFor="idDocument" className="file-label">
-                  {formData.idDocument ? '✓ Document Selected' : '📎 Choose File'}
+                  {formData.idDocument ? '✅ Document Selected' : '📎 Choose File'}
                 </label>
               </div>
               {formData.idDocumentPreview && (
@@ -444,7 +450,7 @@ const GuideVerification = () => {
                   required
                 />
                 <label htmlFor="profilePhoto" className="file-label">
-                  {formData.profilePhoto ? '✓ Photo Selected' : '📷 Choose Photo'}
+                  {formData.profilePhoto ? '✅ Photo Selected' : '📷 Choose Photo'}
                 </label>
               </div>
               {formData.profilePhotoPreview && (

@@ -1,11 +1,8 @@
 // backend/controllers/adminController.js
 const User = require('../models/User');
 const Trip = require('../models/Trip');
-// REMOVED: const HostedTrip = require('../models/HostedTrip');
 const Gear = require('../models/Gear');
-const Order = require('../models/Order');
 const GuideVerification = require('../models/GuideVerification');
-const Rating = require('../models/Rating');
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 
@@ -17,21 +14,14 @@ class AdminController {
         totalUsers,
         totalTrips,
         totalGear,
-        totalOrders,
         pendingVerifications,
-        totalRevenue,
         recentActivity
       ] = await Promise.all([
         User.countDocuments(),
         Trip.countDocuments(),
         // REMOVED: HostedTrip.countDocuments(),
         Gear.countDocuments(),
-        Order.countDocuments(),
         GuideVerification.countDocuments({ status: 'pending' }),
-        Order.aggregate([
-          { $match: { status: 'completed' } },
-          { $group: { _id: null, total: { $sum: '$totalAmount.amount' } } }
-        ]),
         // Recent activity - last 7 days
         User.find({ createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } })
           .select('name email createdAt role')
@@ -85,7 +75,6 @@ class AdminController {
             totalTrips,
             // REMOVED: totalHostedTrips,
             totalGear,
-            totalOrders,
             pendingVerifications,
             totalRevenue: totalRevenue[0]?.total || 0
           },
@@ -263,23 +252,6 @@ class AdminController {
           ]);
           break;
 
-        case 'revenue':
-          reportData = await Order.aggregate([
-            { $match: { ...dateFilter, status: 'completed' } },
-            {
-              $group: {
-                _id: {
-                  year: { $year: '$createdAt' },
-                  month: { $month: '$createdAt' }
-                },
-                revenue: { $sum: '$totalAmount.amount' },
-                orders: { $sum: 1 }
-              }
-            },
-            { $sort: { '_id.year': 1, '_id.month': 1 } }
-          ]);
-          break;
-
         case 'popular-content':
           const [popularTrips, popularGear] = await Promise.all([
             Trip.aggregate([
@@ -356,9 +328,7 @@ class AdminController {
         totalUsers,
         activeUsers,
         totalTrips,
-        activeTrips,
-        totalOrders,
-        pendingOrders,
+        activeTrips, 
         totalMessages,
         recentMessages
       ] = await Promise.all([
@@ -366,8 +336,6 @@ class AdminController {
         User.countDocuments({ isOnline: true }),
         Trip.countDocuments(),
         Trip.countDocuments({ status: { $in: ['open', 'ongoing'] } }),
-        Order.countDocuments(),
-        Order.countDocuments({ status: 'pending' }),
         Message.countDocuments(),
         Message.countDocuments({
           createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
@@ -391,11 +359,6 @@ class AdminController {
             total: totalTrips,
             active: activeTrips,
             percentage: totalTrips > 0 ? Math.round((activeTrips / totalTrips) * 100) : 0
-          },
-          orders: {
-            total: totalOrders,
-            pending: pendingOrders,
-            percentage: totalOrders > 0 ? Math.round((pendingOrders / totalOrders) * 100) : 0
           },
           messages: {
             total: totalMessages,

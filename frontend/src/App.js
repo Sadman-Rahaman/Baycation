@@ -15,12 +15,10 @@ import Trips from './pages/Trips';
 import CreateTrip from './pages/CreateTrip';
 import TripDetails from './pages/TripDetails';
 import MyTrips from './pages/MyTrips';
-import TripCollaboration from './pages/TripCollaboration';
 import AdminDashboard from './pages/AdminDashboard';
 import Stories from './pages/Stories';
 import Marketplace from './pages/Marketplace';
 import GuideVerification from './pages/GuideVerification';
-// REMOVED: import HostedTrips from './pages/HostedTrips';
 import Chat from './pages/Chat';
 import './App.css';
 
@@ -42,12 +40,10 @@ function App() {
                 <Route path="/trips" element={<Trips />} />
                 <Route path="/trips/create" element={<CreateTrip />} />
                 <Route path="/trips/:tripId" element={<TripDetails />} />
-                <Route path="/trips/:tripId/collaborate" element={<TripCollaboration />} />
                 <Route path="/my-trips" element={<MyTrips />} />
                 <Route path="/stories" element={<Stories />} />
                 <Route path="/marketplace" element={<Marketplace />} />
                 <Route path="/guide-verification" element={<GuideVerification />} />
-                {/* REMOVED: <Route path="/hosted-trips" element={<HostedTrips />} /> */}
                 <Route path="/chat/:chatId" element={<Chat />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
